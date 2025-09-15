@@ -14,6 +14,11 @@ export default defineNuxtConfig({
         '@nuxtjs/i18n'
     ],
     css: [ 
-        '~/assets/css/main.scss'
+        '~/assets/css/main.css'
     ],
+    runtimeConfig: {
+        public: {
+            apiUrl: process.env.PUBLIC_API_URL || 'http://localhost:8000',
+        }
+    }
 })
