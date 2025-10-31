@@ -1,22 +1,24 @@
 import type { Database } from '~/types/supabase'
 
-export const usePollStore = defineStore('polls', () => {
+export const usePolls = () => {
     const polls = ref<
         (Database['public']['Tables']['polls']['Row'] & {
             vote_options?: Database['public']['Tables']['vote_options']['Row'][]
         })[]
     >([])
     const loading = ref(false)
+    const error = ref<string | null>(null)
     const supabase = useSupabaseClient<Database>()
 
     const fetchPolls = async () => {
         loading.value = true
-        const { data, error } = await supabase
+        error.value = null
+        const { data, error: err } = await supabase
             .from('polls')
             .select('*, vote_options(*)')
             .order('published_at', { ascending: false })
-        if (error) {
-            console.error(error.message)
+        if (err) {
+            error.value = err.message
             polls.value = []
         }
         else {
@@ -24,5 +26,5 @@ export const usePollStore = defineStore('polls', () => {
         }
         loading.value = false
     }
-    return { polls, loading, fetchPolls }
-})
+    return { polls, fetchPolls, loading, error }
+}

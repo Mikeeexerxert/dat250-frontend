@@ -4,14 +4,15 @@ export default defineNuxtConfig({
     devtools: { enabled: true },
     typescript: { typeCheck: true },
     modules: [
-        '@nuxt/content',
-        '@nuxt/eslint',
-        '@nuxt/image',
-        '@nuxt/scripts',
-        '@nuxt/test-utils',
-        '@nuxt/ui',
-        '@pinia/nuxt',
-        '@nuxtjs/i18n'
+      '@nuxt/content',
+      '@nuxt/eslint',
+      '@nuxt/image',
+      '@nuxt/scripts',
+      '@nuxt/test-utils',
+      '@nuxt/ui',
+      '@pinia/nuxt',
+      '@nuxtjs/i18n',
+      '@nuxtjs/supabase'
     ],
     css: [ 
         '~/assets/css/main.css'
@@ -19,6 +20,14 @@ export default defineNuxtConfig({
     runtimeConfig: {
         public: {
             apiUrl: process.env.PUBLIC_API_URL || 'http://localhost:8000',
+        }
+    },
+    supabase: {
+        redirect: true,
+        redirectOptions: {
+            login: '/login',
+            callback: '/confirm',
+            saveRedirectToCookie: true
         }
     }
 })
