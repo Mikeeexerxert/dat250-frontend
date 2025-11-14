@@ -1,4 +1,4 @@
-import type { Database } from '~/types/supabase'
+import type { Database } from '~/types/database.types'
 
 export const usePollStore = defineStore('polls', () => {
     const polls = ref<

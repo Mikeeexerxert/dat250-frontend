@@ -16,7 +16,7 @@ onMounted(async () => {
     return
   }
 
-  const { data, error: err } = await supabase.auth.setSession({
+  const { error: err } = await supabase.auth.setSession({
     access_token: access_token!,
     refresh_token: refresh_token ?? ''
   })

@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import type { Database } from '~/types/supabase'
+import type { Database } from '~/types/database.types'
 
 const supabase = useSupabaseClient<Database>()
-
 const { polls, fetchPolls, loading } = usePolls()
-
 const redirectInfo = useSupabaseCookieRedirect()
 const redirectTo = redirectInfo.pluck() || '/login'
 
@@ -14,7 +12,7 @@ const newOptions = ref(['', ''])
 const notification = ref<{ visible: boolean; message: string }>({ visible: false, message: '' })
 
 const voteCounts = ref<Record<number, number>>({})
-const userVotes = ref<Record<number, number>>({}) // pollId -> vote_option_id
+const userVotes = ref<Record<number, number>>({})
 
 const showNotification = (message: string) => {
   notification.value = { visible: true, message }
@@ -26,13 +24,13 @@ const fetchVotes = async (userId: string) => {
   const counts: Record<number, number> = {}
   votes?.forEach(v => counts[v.vote_option_id] = (counts[v.vote_option_id] || 0) + 1)
   voteCounts.value = counts
+
   const { data: myVotes } = await supabase.from('votes').select('poll_id, vote_option_id').eq('user_id', userId)
   const myVoteMap: Record<number, number> = {}
   myVotes?.forEach(v => myVoteMap[v.poll_id] = v.vote_option_id)
   userVotes.value = myVoteMap
 }
 
-// Toggle vote (vote/unvote)
 const toggleVote = async (pollId: number, optionId: number) => {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return showNotification('❌ You must be logged in to vote!')
@@ -40,38 +38,23 @@ const toggleVote = async (pollId: number, optionId: number) => {
   const currentVote = userVotes.value[pollId]
 
   if (currentVote === optionId) {
-    // unvote
-    const { error } = await supabase.from('votes')
-        .delete()
-        .eq('poll_id', pollId)
-        .eq('user_id', user.id)
-        .eq('vote_option_id', optionId)
-    if (error) return showNotification(`❌ ${error.message || error}`)
+    await supabase.from('votes').delete().eq('poll_id', pollId).eq('user_id', user.id).eq('vote_option_id', optionId)
     voteCounts.value[optionId] = (voteCounts.value[optionId] || 1) - 1
     delete userVotes.value[pollId]
     showNotification('🗳️ Vote removed!')
-  } else {
-    // remove previous vote if exists
+  }
+  else {
     if (currentVote) {
-      await supabase.from('votes')
-          .delete()
-          .eq('poll_id', pollId)
-          .eq('user_id', user.id)
-          .eq('vote_option_id', currentVote)
+      await supabase.from('votes').delete().eq('poll_id', pollId).eq('user_id', user.id).eq('vote_option_id', currentVote)
       voteCounts.value[currentVote] = (voteCounts.value[currentVote] || 1) - 1
     }
-
-    // insert new vote
-    const { error } = await supabase.from('votes')
-        .insert([{ poll_id: pollId, vote_option_id: optionId, user_id: user.id }])
-    if (error) return showNotification(`❌ ${error.message || error}`)
+    await supabase.from('votes').insert([{ poll_id: pollId, vote_option_id: optionId, user_id: user.id }])
     voteCounts.value[optionId] = (voteCounts.value[optionId] || 0) + 1
     userVotes.value[pollId] = optionId
     showNotification('✅ Vote recorded!')
   }
 }
 
-// Create Poll
 const handleCreatePoll = async () => {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return showNotification('❌ You must be logged in to create a poll.')
@@ -80,8 +63,7 @@ const handleCreatePoll = async () => {
   const validOptions = newOptions.value.filter(o => o.trim() !== '')
   if (validOptions.length < 2) return showNotification('❌ Add at least two options.')
 
-  const { data: pollData, error: pollError } = await supabase
-      .from('polls')
+  const { data: pollData } = await supabase.from('polls')
       .insert([{
         question: newPollQuestion.value,
         published_at: new Date().toISOString(),
@@ -91,20 +73,14 @@ const handleCreatePoll = async () => {
       .select('id')
       .single()
 
-  if (pollError || !pollData?.id) return showNotification('❌ Failed to create poll.')
+  if (!pollData?.id) return showNotification('❌ Failed to create poll.')
 
-  const pollId = pollData.id
-
-  const { error: optionsError } = await supabase
-      .from('vote_options')
-      .insert(validOptions.map((caption, index) => ({
-        poll_id: pollId,
-        caption,
-        presentation_order: index,
-        created_at: new Date().toISOString()
-      })))
-
-  if (optionsError) return showNotification('❌ Failed to add options.')
+  await supabase.from('vote_options').insert(validOptions.map((caption, index) => ({
+    poll_id: pollData.id,
+    caption,
+    presentation_order: index,
+    created_at: new Date().toISOString()
+  })))
 
   showNotification('✅ Poll created successfully!')
   showCreateModal.value = false
@@ -113,17 +89,8 @@ const handleCreatePoll = async () => {
   await fetchPolls()
 }
 
-// On mount: auth, fetch polls, fetch votes, realtime subscription
-onMounted(async () => {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session?.user) return navigateTo(redirectTo)
-
-  const userId = session.user.id
-  await fetchPolls()
-  await fetchVotes(userId)
-
-  const subscription = supabase
-      .channel('public:votes')
+const subscribeVotes = () => {
+  const subscription = supabase.channel('public:votes')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'votes' }, payload => {
         voteCounts.value[payload.new.vote_option_id] = (voteCounts.value[payload.new.vote_option_id] || 0) + 1
       })
@@ -133,7 +100,18 @@ onMounted(async () => {
       .subscribe()
 
   onBeforeUnmount(() => supabase.removeChannel(subscription))
-})
+}
+
+const initPage = async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.user) return navigateTo(redirectTo)
+  const userId = session.user.id
+  await fetchPolls()
+  await fetchVotes(userId)
+  subscribeVotes()
+}
+
+onMounted(initPage)
 </script>
 <template>
   <div class="min-h-screen bg-gray-50 p-6 relative">

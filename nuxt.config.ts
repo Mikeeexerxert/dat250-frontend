@@ -4,11 +4,11 @@ export default defineNuxtConfig({
     devtools: { enabled: true },
     typescript: { typeCheck: true },
     modules: [
-      '@nuxt/content',
+      //'@nuxt/content',
       '@nuxt/eslint',
       '@nuxt/image',
       '@nuxt/scripts',
-      '@nuxt/test-utils',
+      '@nuxt/test-utils/module',
       '@nuxt/ui',
       '@pinia/nuxt',
       '@nuxtjs/i18n',
@@ -19,7 +19,9 @@ export default defineNuxtConfig({
     ],
     runtimeConfig: {
         public: {
-            apiUrl: process.env.PUBLIC_API_URL || 'http://localhost:8000',
+            apiUrl: process.env.PUBLIC_API_URL,
+            supabaseUrl: process.env.SUPABASE_URL,
+            supabasePublishableKey: process.env.SUPABASE_KEY,
         }
     },
     supabase: {
@@ -29,5 +31,11 @@ export default defineNuxtConfig({
             callback: '/confirm',
             saveRedirectToCookie: true
         }
+    },
+    i18n: {
+        locales: [
+            { code: 'en', language: 'en-US' },
+        ],
+        defaultLocale: 'en',
     }
 })

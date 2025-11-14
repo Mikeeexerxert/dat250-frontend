@@ -1,4 +1,4 @@
-import type {Database} from '~/types/supabase'
+import type {Database} from '~/types/database.types'
 
 export const useRealtimeVotes = (callback: (vote: Database['public']['Tables']['votes']['Row']) => void) => {
     const supabase = useSupabaseClient<Database>()
